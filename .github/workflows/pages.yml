@@ -66,6 +66,8 @@ jobs:
           # (PR index omitted)
 
       - name: Commit + push
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           cd gh-pages
