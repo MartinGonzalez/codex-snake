@@ -53,6 +53,8 @@ let dashEffectTicks = 0;
 let dashUnlocked = false;
 let nextPowerScore = POWER_INTERVAL;
 let isPowerChoiceActive = false;
+let activePowerOptions = [];
+let powerChoiceIndex = 0;
 let slowModeTicks = 0;
 let slowModeParity = false;
 let statusOverrideMessage = null;
@@ -85,6 +87,20 @@ if (pickupMotionMedia && typeof pickupMotionMedia.addEventListener === 'function
 }
 
 const cellMap = new Map();
+
+const POWER_ICONS = {
+  dash: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h7l-2 3h6l-2 3h9v-2h-5l2-3H12l2-3H3z"/></svg>`,
+  time: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10A10.01 10.01 0 0 0 12 2Zm1 11h5v-2h-4V6h-2v7Z"/></svg>`,
+  'bonus-time': `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10A10.01 10.01 0 0 0 12 2Zm1 11h5v-2h-4V6h-2v7Zm-7 1h3v3h2v-3h3v-2h-3V9H9v3H6Z"/></svg>`,
+  trim: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.64 7.64 12 10l-2.36 2.36a3 3 0 1 0 1.41 1.41L13.41 11l6.3 6.3 1.41-1.41-6.3-6.3 2.36-2.36a3 3 0 1 0-1.41-1.41L14.41 8.59l-2.36-2.36ZM7 6a1 1 0 1 1 1 1 1 1 0 0 1-1-1Zm0 12a1 1 0 1 1 1 1 1 1 0 0 1-1-1Z"/></svg>`,
+  multi: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10v10H7z"/><path d="M4 4h10v2H6v8H4z"/></svg>`,
+  'magnet-small': `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h4v7a3 3 0 0 0 6 0V3h4v7a7 7 0 0 1-14 0Z"/></svg>`,
+  'wall-bounce': `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 3h2v18h-2z"/><path d="M5 12h9l-2-2 1.4-1.4L18.8 12l-5.4 3.4L12 14l2-2H5z"/></svg>`
+};
+
+function getPowerIcon(id) {
+  return POWER_ICONS[id] || POWER_ICONS.time;
+}
 
 const POWER_UPS = [
   {
@@ -557,6 +573,26 @@ const KEY_BINDINGS = {
 
 function handleKeydown(event) {
   if (isPowerChoiceActive) {
+    const key = event.key;
+    if (key === 'ArrowLeft') {
+      event.preventDefault();
+      setPowerChoiceIndex(powerChoiceIndex - 1, { shouldFocus: true });
+      return;
+    }
+    if (key === 'ArrowRight') {
+      event.preventDefault();
+      setPowerChoiceIndex(powerChoiceIndex + 1, { shouldFocus: true });
+      return;
+    }
+    if (key === 'Enter') {
+      event.preventDefault();
+      const choice = activePowerOptions[powerChoiceIndex];
+      if (choice) {
+        handlePowerChoice(choice);
+      }
+      return;
+    }
+    // Block other inputs while the modal is open.
     event.preventDefault();
     return;
   }
@@ -838,6 +874,8 @@ function closePowerModal() {
   if (powerChoicesElement) {
     powerChoicesElement.innerHTML = '';
   }
+  activePowerOptions = [];
+  powerChoiceIndex = 0;
   isPowerChoiceActive = false;
   syncControlAvailability();
 }
@@ -870,15 +908,59 @@ function renderPowerChoices(options) {
   if (!powerChoicesElement) {
     return;
   }
+
+  activePowerOptions = Array.isArray(options) ? options : [];
+  powerChoiceIndex = 0;
+
   powerChoicesElement.innerHTML = '';
-  options.forEach((power) => {
+  activePowerOptions.forEach((power, index) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'power-choice';
-    button.innerHTML = `<strong>${power.label}</strong><span>${power.description}</span>`;
+    button.dataset.index = String(index);
+    button.setAttribute('aria-selected', 'false');
+    button.innerHTML = `
+      <span class="power-choice__icon" aria-hidden="true">${getPowerIcon(power.id)}</span>
+      <span class="power-choice__copy">
+        <strong>${power.label}</strong>
+        <span>${power.description}</span>
+      </span>
+    `;
+
     button.addEventListener('click', () => handlePowerChoice(power));
+    button.addEventListener('mouseenter', () => setPowerChoiceIndex(index));
     powerChoicesElement.appendChild(button);
   });
+
+  updatePowerChoiceSelection({ shouldFocus: true });
+}
+
+function setPowerChoiceIndex(index, { shouldFocus = false } = {}) {
+  const max = Math.max(activePowerOptions.length - 1, 0);
+  powerChoiceIndex = clamp(index, 0, max);
+  updatePowerChoiceSelection({ shouldFocus });
+}
+
+function updatePowerChoiceSelection({ shouldFocus = false } = {}) {
+  if (!powerChoicesElement) {
+    return;
+  }
+
+  const buttons = Array.from(powerChoicesElement.querySelectorAll('button.power-choice'));
+  buttons.forEach((button, index) => {
+    const selected = index === powerChoiceIndex;
+    button.classList.toggle('is-selected', selected);
+    button.setAttribute('aria-selected', selected ? 'true' : 'false');
+    // Roving tabindex so only the selected option is focusable.
+    button.tabIndex = selected ? 0 : -1;
+  });
+
+  if (shouldFocus) {
+    const selectedButton = buttons[powerChoiceIndex];
+    if (selectedButton) {
+      selectedButton.focus({ preventScroll: true });
+    }
+  }
 }
 
 function handlePowerChoice(power) {
