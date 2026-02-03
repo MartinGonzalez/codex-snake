@@ -39,7 +39,7 @@ jobs:
           path: gh-pages
         continue-on-error: true
 
-      - name: Initialize gh-pages branch if missing
+      - name: Ensure gh-pages branch is up to date (or initialize)
         run: |
           set -euo pipefail
           if [ ! -d gh-pages/.git ]; then
@@ -48,6 +48,15 @@ jobs:
             git init
             git checkout -b gh-pages
             git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          else
+            cd gh-pages
+            git fetch origin gh-pages || true
+            # Create/reset local branch to the remote if it exists
+            if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then
+              git checkout -B gh-pages origin/gh-pages
+            else
+              git checkout -B gh-pages
+            fi
           fi
 
       - name: Copy content into destination
@@ -80,9 +89,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git commit -m "pages: publish ${GITHUB_EVENT_NAME} ${GITHUB_SHA}"
-          # Ensure we have a local gh-pages branch (actions/checkout may leave us in detached HEAD)
-          git checkout -B gh-pages
-          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:gh-pages
+          # Push to gh-pages (force-with-lease avoids non-fast-forward errors if the branch already exists)
+          git push --force-with-lease "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:gh-pages
 
   cleanup:
     runs-on: ubuntu-latest
