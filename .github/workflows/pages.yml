@@ -10,7 +10,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: pages
+  # Prevent PR preview deploys from canceling main production deploys (both write to gh-pages).
+  group: pages-${{ github.event_name }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'main' }}
   cancel-in-progress: true
 
 jobs:
