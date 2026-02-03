@@ -12,14 +12,18 @@
         <h1>Snake</h1>
         <div class="scoreboard">
           <p>Score: <span id="score">0</span></p>
+          <p>Time: <span id="timer">30.0s</span></p>
           <p>Best: <span id="bestScore">0</span></p>
         </div>
-        <div id="status" class="status">Press play to start.</div>
+        <div id="status" class="status">Press play to start your 30-second run.</div>
         <div class="buttons">
           <button id="playPauseBtn" type="button">Play</button>
           <button id="restartBtn" class="secondary" type="button">Restart</button>
         </div>
-        <p class="hint">Use arrow keys or WASD. Space toggles pause.</p>
+        <p id="hintText" class="hint">
+          Use arrow keys or WASD. Eat as many squares as you can before the 30-second timer expires. Press
+          Space to dash once unlocked.
+        </p>
       </section>
       <section class="board">
         <div
@@ -39,6 +43,21 @@
         </div>
       </section>
     </main>
+    <div
+      id="powerModal"
+      class="power-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="powerTitle"
+      aria-describedby="powerSubtitle"
+    >
+      <div class="power-modal__card">
+        <p class="power-modal__eyebrow">Power boost</p>
+        <h2 id="powerTitle">Pick your upgrade</h2>
+        <p id="powerSubtitle">You cleared 5 squares. Choose a boost to keep going.</p>
+        <div id="powerChoices" class="power-choices"></div>
+      </div>
+    </div>
     <script type="module" src="./src/main.js"></script>
   </body>
 </html>

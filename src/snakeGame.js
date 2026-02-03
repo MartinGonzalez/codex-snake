@@ -18,10 +18,12 @@ export class SnakeGame {
     this.height = height;
     this.initialLength = Math.max(1, initialLength);
     this.rng = typeof rng === 'function' ? rng : Math.random;
+    this.extraFoodSlots = 0;
     this.reset();
   }
 
   reset() {
+    this.extraFoodSlots = 0;
     const startX = Math.floor(this.width / 2);
     const startY = Math.floor(this.height / 2);
     const snake = [];
@@ -36,19 +38,22 @@ export class SnakeGame {
       nextDirection: 'right',
       score: 0,
       status: 'idle',
-      food: null
+      food: null,
+      extraFoods: []
     };
 
     this.state.food = this._spawnFood();
+    this._syncExtraFoods();
     return this.getState();
   }
 
   getState() {
-    const { snake, food, ...rest } = this.state;
+    const { snake, food, extraFoods = [], ...rest } = this.state;
     return {
       ...rest,
       snake: snake.map((segment) => ({ ...segment })),
-      food: food ? { ...food } : null
+      food: food ? { ...food } : null,
+      extraFoods: extraFoods.map((cell) => ({ ...cell }))
     };
   }
 
@@ -84,8 +89,11 @@ export class SnakeGame {
     const nextSnake = this.state.snake.map((segment) => ({ ...segment }));
     const willEatFood =
       this.state.food && nextHead.x === this.state.food.x && nextHead.y === this.state.food.y;
+    const extraFoods = Array.isArray(this.state.extraFoods) ? this.state.extraFoods : [];
+    const extraIndex = extraFoods.findIndex((cell) => cell.x === nextHead.x && cell.y === nextHead.y);
+    const willEatExtra = extraIndex !== -1;
 
-    if (!willEatFood) {
+    if (!willEatFood && !willEatExtra) {
       nextSnake.pop();
     }
 
@@ -102,10 +110,61 @@ export class SnakeGame {
       this.state.food = this._spawnFood();
     }
 
-    if (!this.state.food) {
+    if (willEatExtra) {
+      this.state.score += 1;
+      extraFoods.splice(extraIndex, 1);
+    }
+
+    this._syncExtraFoods();
+
+    if (!this.state.food && extraFoods.length === 0) {
       this.state.status = 'won';
     }
 
+    return this.getState();
+  }
+
+  dash(steps = 3) {
+    if (this.state.status === 'over' || this.state.status === 'won') {
+      return this.getState();
+    }
+
+    const jumps = Math.max(1, Math.floor(steps));
+    let snapshot = this.getState();
+
+    for (let i = 0; i < jumps; i += 1) {
+      snapshot = this.tick();
+      if (this.state.status !== 'running') {
+        break;
+      }
+    }
+
+    return snapshot;
+  }
+
+  shrink(amount = 1) {
+    const segmentsToRemove = Math.max(0, Math.floor(amount));
+    if (segmentsToRemove === 0) {
+      return this.getState();
+    }
+
+    const minLength = 1;
+    const targetLength = Math.max(minLength, this.state.snake.length - segmentsToRemove);
+    while (this.state.snake.length > targetLength) {
+      this.state.snake.pop();
+    }
+
+    return this.getState();
+  }
+
+  addExtraFoodSlots(count = 1) {
+    const slots = Math.max(0, Math.floor(count));
+    if (slots === 0) {
+      return this.getState();
+    }
+
+    this.extraFoodSlots += slots;
+    this._syncExtraFoods();
     return this.getState();
   }
 
@@ -118,8 +177,47 @@ export class SnakeGame {
   }
 
   _spawnFood() {
+    const emptyCells = this._collectEmptyCells({ includeCurrentFood: false });
+    if (emptyCells.length === 0) {
+      return null;
+    }
+    const index = Math.floor(this.rng() * emptyCells.length) % emptyCells.length;
+    return emptyCells[index];
+  }
+
+  placePreferredFood(preferred = []) {
+    const emptyCells = this._collectEmptyCells({ includeCurrentFood: true });
+    if (emptyCells.length === 0) {
+      this.state.food = null;
+      return this.getState();
+    }
+
+    for (const candidate of preferred) {
+      if (!candidate) continue;
+      const match = emptyCells.find((cell) => cell.x === candidate.x && cell.y === candidate.y);
+      if (match) {
+        this.state.food = { ...match };
+        return this.getState();
+      }
+    }
+
+    const centerX = Math.floor(this.width / 2);
+    const centerY = Math.floor(this.height / 2);
+    emptyCells.sort((a, b) => {
+      return this._distanceSquared(a, centerX, centerY) - this._distanceSquared(b, centerX, centerY);
+    });
+    this.state.food = { ...emptyCells[0] };
+    return this.getState();
+  }
+
+  _collectEmptyCells({ includeCurrentFood = true } = {}) {
     const emptyCells = [];
     const occupied = new Set(this.state.snake.map((segment) => `${segment.x}:${segment.y}`));
+    if (!includeCurrentFood && this.state.food) {
+      occupied.add(`${this.state.food.x}:${this.state.food.y}`);
+    }
+    const extraFoods = Array.isArray(this.state.extraFoods) ? this.state.extraFoods : [];
+    extraFoods.forEach((cell) => occupied.add(`${cell.x}:${cell.y}`));
 
     for (let y = 0; y < this.height; y += 1) {
       for (let x = 0; x < this.width; x += 1) {
@@ -130,11 +228,26 @@ export class SnakeGame {
       }
     }
 
-    if (emptyCells.length === 0) {
-      return null;
+    return emptyCells;
+  }
+
+  _distanceSquared(cell, centerX, centerY) {
+    const dx = cell.x - centerX;
+    const dy = cell.y - centerY;
+    return dx * dx + dy * dy;
+  }
+
+  _syncExtraFoods() {
+    if (!Array.isArray(this.state.extraFoods)) {
+      this.state.extraFoods = [];
     }
 
-    const index = Math.floor(this.rng() * emptyCells.length) % emptyCells.length;
-    return emptyCells[index];
+    while (this.state.extraFoods.length < this.extraFoodSlots) {
+      const spawn = this._spawnFood();
+      if (!spawn) {
+        break;
+      }
+      this.state.extraFoods.push(spawn);
+    }
   }
 }
