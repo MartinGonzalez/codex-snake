@@ -80,7 +80,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git commit -m "pages: publish ${GITHUB_EVENT_NAME} ${GITHUB_SHA}"
-          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages
+          # Ensure we have a local gh-pages branch (actions/checkout may leave us in detached HEAD)
+          git checkout -B gh-pages
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:gh-pages
 
   cleanup:
     runs-on: ubuntu-latest
@@ -108,4 +110,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git commit -m "pages: cleanup pr/${{ github.event.pull_request.number }}"
-          git push
+          git checkout -B gh-pages
+          git push origin HEAD:gh-pages
