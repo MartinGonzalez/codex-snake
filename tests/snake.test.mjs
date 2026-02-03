@@ -112,6 +112,14 @@ test('consuming an extra food increases score and respawns elsewhere', () => {
   assert(result.extraFoods.every((cell) => cell.x !== target.x || cell.y !== target.y));
 });
 
+test('clearing extra food slots removes bonus foods', () => {
+  const game = new SnakeGame({ width: 5, height: 5, rng: () => 0.1 });
+  game.addExtraFoodSlots(2);
+  assert(game.getState().extraFoods.length > 0);
+  const afterClear = game.clearExtraFoodSlots();
+  assert.equal(afterClear.extraFoods.length, 0);
+});
+
 test('preferred food placement uses requested coordinate when it is free', () => {
   const game = new SnakeGame({ width: 5, height: 5, rng: () => 0 });
   game.state.snake = [

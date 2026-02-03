@@ -168,6 +168,14 @@ export class SnakeGame {
     return this.getState();
   }
 
+  clearExtraFoodSlots() {
+    this.extraFoodSlots = 0;
+    if (Array.isArray(this.state.extraFoods)) {
+      this.state.extraFoods.length = 0;
+    }
+    return this.getState();
+  }
+
   _collides(target, body) {
     return body.some((segment) => segment.x === target.x && segment.y === target.y);
   }

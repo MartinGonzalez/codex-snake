@@ -11,6 +11,7 @@ const SLOW_MODE_TICKS = 60;
 const EXTRA_FOOD_SLOTS_PER_POWER = 2;
 const TRIM_SEGMENTS_MIN = 2;
 const STATUS_FLASH_MS = 2200;
+const TIME_BONUS_MS = 10000;
 const DASH_GRADIENT = {
   start: { r: 250, g: 204, b: 21 },
   end: { r: 220, g: 38, b: 38 }
@@ -65,6 +66,7 @@ let timeExpired = false;
 let milestoneFoodActive = false;
 let milestoneFoodPosition = null;
 let forceEffectsEnabled = loadForceEffectsPreference();
+let multiFoodActive = false;
 bestScoreElement.textContent = bestScore;
 updateTimerDisplay();
 
@@ -95,6 +97,12 @@ const POWER_UPS = [
     label: 'Time Capsule',
     description: 'Slow the world for a moment to plan your route.',
     apply: applySlowTimeBoost
+  },
+  {
+    id: 'bonus-time',
+    label: '+10 Seconds',
+    description: 'Add 10 seconds to the round timer instantly.',
+    apply: applyTimeBonusBoost
   },
   {
     id: 'trim',
@@ -492,6 +500,7 @@ function restartGame() {
   statusOverrideMessage = null;
   milestoneFoodActive = false;
   milestoneFoodPosition = null;
+  expireMultiFoodBoost({ shouldRender: false });
   if (statusOverrideTimeout) {
     clearTimeout(statusOverrideTimeout);
     statusOverrideTimeout = null;
@@ -785,6 +794,7 @@ function maybeShowPowerChoice(state) {
 }
 
 function openPowerModal(milestone) {
+  expireMultiFoodBoost({ shouldRender: false });
   isPowerChoiceActive = true;
   pauseGame();
   syncControlAvailability();
@@ -881,6 +891,14 @@ function applySlowTimeBoost() {
   setStatusOverride('Time slowed — take a breather.');
 }
 
+function applyTimeBonusBoost() {
+  const before = remainingTimeMs;
+  remainingTimeMs = clamp(remainingTimeMs + TIME_BONUS_MS, 0, Number.POSITIVE_INFINITY);
+  updateTimerDisplay();
+  const addedSeconds = ((remainingTimeMs - before) / 1000).toFixed(1);
+  setStatusOverride(`⏱ +${addedSeconds}s added to the clock!`);
+}
+
 function applyTrimBoost() {
   const currentLength = game.getState().snake.length;
   const trimAmount = Math.max(TRIM_SEGMENTS_MIN, Math.floor(currentLength * 0.25));
@@ -890,9 +908,21 @@ function applyTrimBoost() {
 }
 
 function applyMultiFoodBoost() {
+  multiFoodActive = true;
   const nextState = game.addExtraFoodSlots(EXTRA_FOOD_SLOTS_PER_POWER);
   render(nextState);
   setStatusOverride('Multiple squares activated — collect them all!');
+}
+
+function expireMultiFoodBoost({ shouldRender = true } = {}) {
+  if (!multiFoodActive) {
+    return;
+  }
+  multiFoodActive = false;
+  const nextState = game.clearExtraFoodSlots();
+  if (shouldRender) {
+    render(nextState);
+  }
 }
 
 function updateHintMessage() {
