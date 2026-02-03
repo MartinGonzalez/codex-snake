@@ -68,6 +68,7 @@ let milestoneFoodPosition = null;
 let forceEffectsEnabled = loadForceEffectsPreference();
 let multiFoodActive = false;
 let magnetRadius = 0;
+let wallBounceActive = false;
 bestScoreElement.textContent = bestScore;
 updateTimerDisplay();
 
@@ -124,6 +125,13 @@ const POWER_UPS = [
     description: 'Nearby food slides toward your head when close enough.',
     available: () => magnetRadius < 1,
     apply: applyMagnetSmallBoost
+  },
+  {
+    id: 'wall-bounce',
+    label: 'Wall Bounce',
+    description: 'Avoid wall deaths for this stage — the snake will auto-turn at the edge.',
+    available: () => !wallBounceActive,
+    apply: applyWallBounceBoost
   }
 ];
 
@@ -481,6 +489,7 @@ function resumeGame() {
   if (current.status === 'over' || current.status === 'won') {
     game.reset();
     magnetRadius = 0;
+    wallBounceActive = false;
     resetPickupEffects();
     resetTimer();
   }
@@ -510,6 +519,7 @@ function restartGame() {
   milestoneFoodActive = false;
   milestoneFoodPosition = null;
   expireMultiFoodBoost({ shouldRender: false });
+  expireWallBounceBoost({ shouldRender: false });
   magnetRadius = 0;
   game.setMagnetRadius(0);
   if (statusOverrideTimeout) {
@@ -806,6 +816,7 @@ function maybeShowPowerChoice(state) {
 
 function openPowerModal(milestone) {
   expireMultiFoodBoost({ shouldRender: false });
+  expireWallBounceBoost({ shouldRender: false });
   isPowerChoiceActive = true;
   pauseGame();
   syncControlAvailability();
@@ -925,6 +936,13 @@ function applyMultiFoodBoost() {
   setStatusOverride('Multiple squares activated — collect them all!');
 }
 
+function applyWallBounceBoost() {
+  wallBounceActive = true;
+  const nextState = game.setWallBounceActive(true);
+  render(nextState);
+  setStatusOverride('Wall Bounce active for this stage — the edge will auto-turn you.');
+}
+
 function applyMagnetSmallBoost() {
   magnetRadius = 1;
   const nextState = game.setMagnetRadius(magnetRadius);
@@ -938,6 +956,17 @@ function expireMultiFoodBoost({ shouldRender = true } = {}) {
   }
   multiFoodActive = false;
   const nextState = game.clearExtraFoodSlots();
+  if (shouldRender) {
+    render(nextState);
+  }
+}
+
+function expireWallBounceBoost({ shouldRender = true } = {}) {
+  if (!wallBounceActive) {
+    return;
+  }
+  wallBounceActive = false;
+  const nextState = game.setWallBounceActive(false);
   if (shouldRender) {
     render(nextState);
   }

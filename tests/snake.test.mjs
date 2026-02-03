@@ -160,3 +160,23 @@ test('magnet radius pulls food into the snake and counts as a pickup', () => {
   assert.equal(after.score, 1);
   assert.equal(after.snake.length, 4);
 });
+
+test('wall bounce prevents wall death by auto-turning when active', () => {
+  const game = new SnakeGame({ width: 4, height: 4, rng: () => 0 });
+  game.setWallBounceActive(true);
+
+  // Place head at the right edge heading right.
+  game.state.snake = [
+    { x: 3, y: 1 },
+    { x: 2, y: 1 },
+    { x: 1, y: 1 }
+  ];
+  game.state.direction = 'right';
+  game.state.nextDirection = 'right';
+
+  const result = game.tick();
+  assert.notEqual(result.status, 'over');
+  // rng()=0 -> picks 'up' from ['up','down']
+  assert.equal(result.snake[0].x, 3);
+  assert.equal(result.snake[0].y, 0);
+});
