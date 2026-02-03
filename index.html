@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Snake</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="app">
+      <section class="hud">
+        <h1>Snake</h1>
+        <div class="scoreboard">
+          <p>Score: <span id="score">0</span></p>
+          <p>Best: <span id="bestScore">0</span></p>
+        </div>
+        <div id="status" class="status">Press play to start.</div>
+        <div class="buttons">
+          <button id="playPauseBtn" type="button">Play</button>
+          <button id="restartBtn" class="secondary" type="button">Restart</button>
+        </div>
+        <p class="hint">Use arrow keys or WASD. Space toggles pause.</p>
+      </section>
+      <section class="board">
+        <div
+          id="grid"
+          class="grid"
+          role="grid"
+          aria-label="Snake board"
+          tabindex="0"
+        ></div>
+        <div id="touchControls" class="touch-controls">
+          <button type="button" data-dir="up" aria-label="Move up">▲</button>
+          <div class="touch-row">
+            <button type="button" data-dir="left" aria-label="Move left">◀</button>
+            <button type="button" data-dir="down" aria-label="Move down">▼</button>
+            <button type="button" data-dir="right" aria-label="Move right">▶</button>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
