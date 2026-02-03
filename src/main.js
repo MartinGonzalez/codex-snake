@@ -24,6 +24,7 @@ const PICKUP_PARTICLE_LIFETIME_MS = 550;
 const LENGTH_FOR_MAX_EFFECT = GRID_SIZE * 0.8;
 const ROUND_DURATION_MS = 30000;
 const TIMER_DECIMALS = 1;
+const FORCE_EFFECTS_KEY = 'snake-force-effects';
 
 const gridElement = document.getElementById('grid');
 const scoreElement = document.getElementById('score');
@@ -37,6 +38,7 @@ const hintElement = document.getElementById('hintText');
 const powerModalElement = document.getElementById('powerModal');
 const powerChoicesElement = document.getElementById('powerChoices');
 const powerSubtitleElement = document.getElementById('powerSubtitle');
+const effectsForceToggle = document.getElementById('effectsForceToggle');
 const pickupMotionMedia =
   typeof window !== 'undefined' && typeof window.matchMedia === 'function'
     ? window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -62,16 +64,19 @@ let lastTimerTimestamp = null;
 let timeExpired = false;
 let milestoneFoodActive = false;
 let milestoneFoodPosition = null;
+let forceEffectsEnabled = loadForceEffectsPreference();
 bestScoreElement.textContent = bestScore;
 updateTimerDisplay();
 
 if (pickupMotionMedia && typeof pickupMotionMedia.addEventListener === 'function') {
   pickupMotionMedia.addEventListener('change', (event) => {
     prefersReducedMotion = event.matches;
+    updateHintMessage();
   });
 } else if (pickupMotionMedia && typeof pickupMotionMedia.addListener === 'function') {
   pickupMotionMedia.addListener((event) => {
     prefersReducedMotion = event.matches;
+    updateHintMessage();
   });
 }
 
@@ -194,7 +199,7 @@ function handlePickupEffects(state) {
     !state ||
     state.score <= previousScore ||
     !gridElement ||
-    prefersReducedMotion ||
+    isMotionSuppressed() ||
     !Array.isArray(state.snake) ||
     state.snake.length === 0
   ) {
@@ -566,6 +571,22 @@ function loadBestScore() {
   }
 }
 
+function loadForceEffectsPreference() {
+  try {
+    return localStorage.getItem(FORCE_EFFECTS_KEY) === 'true';
+  } catch (error) {
+    return false;
+  }
+}
+
+function persistForceEffectsPreference(value) {
+  try {
+    localStorage.setItem(FORCE_EFFECTS_KEY, String(Boolean(value)));
+  } catch (error) {
+    // Ignore storage failures (e.g., privacy mode)
+  }
+}
+
 function triggerDash() {
   const current = game.getState();
   if (!dashUnlocked) {
@@ -654,6 +675,46 @@ function setupButtons() {
       resumeGame();
     }
   });
+}
+
+function setupEffectsToggle() {
+  syncForceEffectsClass();
+  syncEffectsToggleState();
+  if (!effectsForceToggle) {
+    return;
+  }
+  effectsForceToggle.addEventListener('change', (event) => {
+    setForceEffectsEnabled(event.target.checked);
+  });
+}
+
+function setForceEffectsEnabled(enabled) {
+  const normalized = Boolean(enabled);
+  if (normalized === forceEffectsEnabled) {
+    syncEffectsToggleState();
+    return;
+  }
+  forceEffectsEnabled = normalized;
+  persistForceEffectsPreference(forceEffectsEnabled);
+  syncForceEffectsClass();
+  syncEffectsToggleState();
+  updateHintMessage();
+}
+
+function syncForceEffectsClass() {
+  if (document.body) {
+    document.body.classList.toggle('effects-forced', forceEffectsEnabled);
+  }
+}
+
+function syncEffectsToggleState() {
+  if (effectsForceToggle) {
+    effectsForceToggle.checked = forceEffectsEnabled;
+  }
+}
+
+function isMotionSuppressed() {
+  return prefersReducedMotion && !forceEffectsEnabled;
 }
 
 function syncControlAvailability() {
@@ -849,7 +910,13 @@ function updateHintMessage() {
   const timeCopy = timeExpired
     ? 'Round complete.'
     : `${timeSeconds}s remaining${paused ? ' (paused)' : ''}.`;
-  hintElement.textContent = `Use arrow keys or WASD. ${dashCopy} ${boostCopy} ${timeCopy}`;
+  const effectsCopy = forceEffectsEnabled
+    ? 'Effects forced on.'
+    : prefersReducedMotion
+      ? 'Effects follow your system setting.'
+      : '';
+  const motionSuffix = effectsCopy ? ` ${effectsCopy}` : '';
+  hintElement.textContent = `Use arrow keys or WASD. ${dashCopy} ${boostCopy} ${timeCopy}${motionSuffix}`;
 }
 
 function init() {
@@ -857,6 +924,7 @@ function init() {
   render();
   ensureLoop();
   setupButtons();
+  setupEffectsToggle();
   controlsWrapper.addEventListener('click', handleTouchControls);
   window.addEventListener('keydown', handleKeydown);
   window.addEventListener('blur', pauseGame);
