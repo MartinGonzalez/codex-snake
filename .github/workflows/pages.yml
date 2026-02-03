@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: pages-${{ github.ref }}
+  group: pages
   cancel-in-progress: true
 
 jobs:
@@ -40,6 +40,8 @@ jobs:
         continue-on-error: true
 
       - name: Ensure gh-pages branch is up to date (or initialize)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           if [ ! -d gh-pages/.git ]; then
@@ -47,10 +49,11 @@ jobs:
             cd gh-pages
             git init
             git checkout -b gh-pages
-            git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+            git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           else
             cd gh-pages
-            git fetch origin gh-pages || true
+            git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+            git fetch origin gh-pages
             # Create/reset local branch to the remote if it exists
             if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then
               git checkout -B gh-pages origin/gh-pages
@@ -89,8 +92,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git commit -m "pages: publish ${GITHUB_EVENT_NAME} ${GITHUB_SHA}"
-          # Push to gh-pages (force-with-lease avoids non-fast-forward errors if the branch already exists)
-          git push --force-with-lease "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:gh-pages
+          # Push to gh-pages
+          git push --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:gh-pages
 
   cleanup:
     runs-on: ubuntu-latest
