@@ -576,12 +576,12 @@ function handleKeydown(event) {
     const key = event.key;
     if (key === 'ArrowLeft') {
       event.preventDefault();
-      setPowerChoiceIndex(powerChoiceIndex - 1);
+      setPowerChoiceIndex(powerChoiceIndex - 1, { shouldFocus: true });
       return;
     }
     if (key === 'ArrowRight') {
       event.preventDefault();
-      setPowerChoiceIndex(powerChoiceIndex + 1);
+      setPowerChoiceIndex(powerChoiceIndex + 1, { shouldFocus: true });
       return;
     }
     if (key === 'Enter') {
@@ -935,10 +935,10 @@ function renderPowerChoices(options) {
   updatePowerChoiceSelection({ shouldFocus: true });
 }
 
-function setPowerChoiceIndex(index) {
+function setPowerChoiceIndex(index, { shouldFocus = false } = {}) {
   const max = Math.max(activePowerOptions.length - 1, 0);
   powerChoiceIndex = clamp(index, 0, max);
-  updatePowerChoiceSelection();
+  updatePowerChoiceSelection({ shouldFocus });
 }
 
 function updatePowerChoiceSelection({ shouldFocus = false } = {}) {
@@ -951,10 +951,16 @@ function updatePowerChoiceSelection({ shouldFocus = false } = {}) {
     const selected = index === powerChoiceIndex;
     button.classList.toggle('is-selected', selected);
     button.setAttribute('aria-selected', selected ? 'true' : 'false');
-    if (selected && shouldFocus) {
-      button.focus({ preventScroll: true });
-    }
+    // Roving tabindex so only the selected option is focusable.
+    button.tabIndex = selected ? 0 : -1;
   });
+
+  if (shouldFocus) {
+    const selectedButton = buttons[powerChoiceIndex];
+    if (selectedButton) {
+      selectedButton.focus({ preventScroll: true });
+    }
+  }
 }
 
 function handlePowerChoice(power) {
