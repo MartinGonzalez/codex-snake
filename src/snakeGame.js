@@ -19,12 +19,14 @@ export class SnakeGame {
     this.initialLength = Math.max(1, initialLength);
     this.rng = typeof rng === 'function' ? rng : Math.random;
     this.extraFoodSlots = 0;
+    this.magnetRadius = 0;
     this.wallBounceActive = false;
     this.reset();
   }
 
   reset() {
     this.extraFoodSlots = 0;
+    this.magnetRadius = 0;
     this.wallBounceActive = false;
     const startX = Math.floor(this.width / 2);
     const startY = Math.floor(this.height / 2);
@@ -102,8 +104,9 @@ export class SnakeGame {
     const extraIndex = extraFoods.findIndex((cell) => cell.x === nextHead.x && cell.y === nextHead.y);
     const willEatExtra = extraIndex !== -1;
 
+    let removedTail = null;
     if (!willEatFood && !willEatExtra) {
-      nextSnake.pop();
+      removedTail = nextSnake.pop() || null;
     }
 
     if (this._collides(nextHead, nextSnake)) {
@@ -124,6 +127,7 @@ export class SnakeGame {
       extraFoods.splice(extraIndex, 1);
     }
 
+    this._applyMagnetAttraction({ removedTail });
     this._syncExtraFoods();
 
     if (!this.state.food && extraFoods.length === 0) {
@@ -179,6 +183,12 @@ export class SnakeGame {
 
   setWallBounceActive(enabled = false) {
     this.wallBounceActive = Boolean(enabled);
+    return this.getState();
+  }
+
+  setMagnetRadius(radius = 0) {
+    const resolved = Math.max(0, Math.floor(radius));
+    this.magnetRadius = resolved;
     return this.getState();
   }
 
@@ -321,6 +331,113 @@ export class SnakeGame {
         break;
       }
       this.state.extraFoods.push(spawn);
+    }
+  }
+
+  _applyMagnetAttraction({ removedTail } = {}) {
+    const radius = Math.max(0, this.magnetRadius || 0);
+    if (radius === 0) {
+      return;
+    }
+
+    const head = this.state.snake && this.state.snake[0];
+    if (!head) {
+      return;
+    }
+
+    const grow = () => {
+      if (removedTail) {
+        this.state.snake.push(removedTail);
+        removedTail = null;
+        return;
+      }
+      const tail = this.state.snake[this.state.snake.length - 1];
+      if (tail) {
+        this.state.snake.push({ ...tail });
+      }
+    };
+
+    const snakeKeys = new Set(this.state.snake.map((segment) => `${segment.x}:${segment.y}`));
+
+    const foodKeySet = new Set();
+    if (this.state.food) {
+      foodKeySet.add(`${this.state.food.x}:${this.state.food.y}`);
+    }
+    const extraFoods = Array.isArray(this.state.extraFoods) ? this.state.extraFoods : [];
+    extraFoods.forEach((cell) => foodKeySet.add(`${cell.x}:${cell.y}`));
+
+    const attractPoint = (point) => {
+      if (!point) return { moved: false, consumed: false };
+      const distance = Math.abs(point.x - head.x) + Math.abs(point.y - head.y);
+      if (distance === 0) {
+        return { moved: false, consumed: true };
+      }
+      if (distance > radius) {
+        return { moved: false, consumed: false };
+      }
+
+      const dx = head.x - point.x;
+      const dy = head.y - point.y;
+      const xStep = dx === 0 ? 0 : dx > 0 ? 1 : -1;
+      const yStep = dy === 0 ? 0 : dy > 0 ? 1 : -1;
+
+      const candidates = [];
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        if (xStep !== 0) candidates.push({ x: point.x + xStep, y: point.y });
+        if (yStep !== 0) candidates.push({ x: point.x, y: point.y + yStep });
+      } else {
+        if (yStep !== 0) candidates.push({ x: point.x, y: point.y + yStep });
+        if (xStep !== 0) candidates.push({ x: point.x + xStep, y: point.y });
+      }
+
+      for (const next of candidates) {
+        const key = `${next.x}:${next.y}`;
+        if (next.x === head.x && next.y === head.y) {
+          return { moved: true, consumed: true, next };
+        }
+        if (snakeKeys.has(key)) {
+          continue;
+        }
+        if (foodKeySet.has(key)) {
+          continue;
+        }
+        return { moved: true, consumed: false, next };
+      }
+
+      return { moved: false, consumed: false };
+    };
+
+    // Main food.
+    if (this.state.food) {
+      foodKeySet.delete(`${this.state.food.x}:${this.state.food.y}`);
+      const result = attractPoint(this.state.food);
+      if (result.consumed) {
+        this.state.score += 1;
+        grow();
+        this.state.food = this._spawnFood();
+      } else if (result.moved && result.next) {
+        this.state.food = result.next;
+      }
+      if (this.state.food) {
+        foodKeySet.add(`${this.state.food.x}:${this.state.food.y}`);
+      }
+    }
+
+    // Extra foods.
+    for (let i = extraFoods.length - 1; i >= 0; i -= 1) {
+      const cell = extraFoods[i];
+      foodKeySet.delete(`${cell.x}:${cell.y}`);
+      const result = attractPoint(cell);
+      if (result.consumed) {
+        this.state.score += 1;
+        grow();
+        extraFoods.splice(i, 1);
+      } else if (result.moved && result.next) {
+        extraFoods[i] = result.next;
+        foodKeySet.add(`${result.next.x}:${result.next.y}`);
+      } else {
+        foodKeySet.add(`${cell.x}:${cell.y}`);
+      }
     }
   }
 }

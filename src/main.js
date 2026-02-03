@@ -67,6 +67,7 @@ let milestoneFoodActive = false;
 let milestoneFoodPosition = null;
 let forceEffectsEnabled = loadForceEffectsPreference();
 let multiFoodActive = false;
+let magnetRadius = 0;
 let wallBounceActive = false;
 bestScoreElement.textContent = bestScore;
 updateTimerDisplay();
@@ -117,6 +118,13 @@ const POWER_UPS = [
     label: 'Multi Select',
     description: 'Spawn extra food so multiple squares count at once.',
     apply: applyMultiFoodBoost
+  },
+  {
+    id: 'magnet-small',
+    label: 'Magnet Radius (Small)',
+    description: 'Nearby food slides toward your head when close enough.',
+    available: () => magnetRadius < 1,
+    apply: applyMagnetSmallBoost
   },
   {
     id: 'wall-bounce',
@@ -480,6 +488,7 @@ function resumeGame() {
   const current = game.getState();
   if (current.status === 'over' || current.status === 'won') {
     game.reset();
+    magnetRadius = 0;
     wallBounceActive = false;
     resetPickupEffects();
     resetTimer();
@@ -511,6 +520,8 @@ function restartGame() {
   milestoneFoodPosition = null;
   expireMultiFoodBoost({ shouldRender: false });
   expireWallBounceBoost({ shouldRender: false });
+  magnetRadius = 0;
+  game.setMagnetRadius(0);
   if (statusOverrideTimeout) {
     clearTimeout(statusOverrideTimeout);
     statusOverrideTimeout = null;
@@ -930,6 +941,13 @@ function applyWallBounceBoost() {
   const nextState = game.setWallBounceActive(true);
   render(nextState);
   setStatusOverride('Wall Bounce active for this stage — the edge will auto-turn you.');
+}
+
+function applyMagnetSmallBoost() {
+  magnetRadius = 1;
+  const nextState = game.setMagnetRadius(magnetRadius);
+  render(nextState);
+  setStatusOverride('Magnet online — nearby food will drift toward you.');
 }
 
 function expireMultiFoodBoost({ shouldRender = true } = {}) {

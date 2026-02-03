@@ -144,6 +144,23 @@ test('preferred food placement falls back near center when blocked', () => {
   assert(dx * dx + dy * dy <= 2); // stays near the center, away from edges
 });
 
+test('magnet radius pulls food into the snake and counts as a pickup', () => {
+  const game = new SnakeGame({ width: 6, height: 6, rng: () => 0 });
+  game.setMagnetRadius(1);
+
+  // Default head starts at (3,3) and moves right on tick 1.
+  // Place food so that after moving right, it will be adjacent and get pulled onto the head.
+  game.state.food = { x: 5, y: 3 };
+
+  const before = game.getState();
+  assert.equal(before.score, 0);
+  assert.equal(before.snake.length, 3);
+
+  const after = game.tick();
+  assert.equal(after.score, 1);
+  assert.equal(after.snake.length, 4);
+});
+
 test('wall bounce prevents wall death by auto-turning when active', () => {
   const game = new SnakeGame({ width: 4, height: 4, rng: () => 0 });
   game.setWallBounceActive(true);
