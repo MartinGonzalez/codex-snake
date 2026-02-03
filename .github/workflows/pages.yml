@@ -1,0 +1,125 @@
+name: Pages (main + PR previews)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.pull_request.state == 'open'
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Prepare site content
+        run: |
+          set -euo pipefail
+          mkdir -p _site
+          rsync -av --delete \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude 'tests' \
+            --exclude 'node_modules' \
+            ./ _site/
+
+      - name: Checkout gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+        continue-on-error: true
+
+      - name: Ensure gh-pages branch is up to date (or initialize)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ ! -d gh-pages/.git ]; then
+            mkdir -p gh-pages
+            cd gh-pages
+            git init
+            git checkout -b gh-pages
+            git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          else
+            cd gh-pages
+            git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+            git fetch origin gh-pages
+            # Create/reset local branch to the remote if it exists
+            if git show-ref --verify --quiet refs/remotes/origin/gh-pages; then
+              git checkout -B gh-pages origin/gh-pages
+            else
+              git checkout -B gh-pages
+            fi
+          fi
+
+      - name: Copy content into destination
+        run: |
+          set -euo pipefail
+          DEST=""
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            DEST="pr/${{ github.event.pull_request.number }}"
+          else
+            DEST="."
+          fi
+
+          mkdir -p "gh-pages/${DEST}"
+          rsync -av --delete _site/ "gh-pages/${DEST}/"
+
+          # (PR index omitted)
+
+      - name: Commit + push
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cd gh-pages
+          touch .nojekyll
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to publish."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "pages: publish ${GITHUB_EVENT_NAME} ${GITHUB_SHA}"
+          # Push to gh-pages
+          git push --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:gh-pages
+
+  cleanup:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    steps:
+      - name: Checkout gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+
+      - name: Remove closed PR preview
+        run: |
+          set -euo pipefail
+          PR_NUM=${{ github.event.pull_request.number }}
+          rm -rf "pr/${PR_NUM}" || true
+
+      - name: Commit + push cleanup
+        run: |
+          set -euo pipefail
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Nothing to clean up."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "pages: cleanup pr/${{ github.event.pull_request.number }}"
+          git checkout -B gh-pages
+          git push origin HEAD:gh-pages
