@@ -452,11 +452,12 @@ body.effects-forced .pickup-particle {
 }
 
 .power-choice {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 0.9rem;
+  align-items: start;
   border-radius: 18px;
-  padding: 1.25rem 1.35rem;
+  padding: 1.15rem 1.2rem;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: radial-gradient(circle at 0% 0%, rgba(60, 255, 127, 0.18), transparent 70%),
     rgba(24, 34, 54, 0.9);
@@ -467,17 +468,40 @@ body.effects-forced .pickup-particle {
   font: inherit;
 }
 
-.power-choice strong {
-  font-size: 1.1rem;
+.power-choice__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.power-choice span {
-  font-size: 0.95rem;
+.power-choice__icon svg {
+  width: 24px;
+  height: 24px;
+  fill: rgba(244, 244, 245, 0.92);
+}
+
+.power-choice__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.power-choice__copy strong {
+  font-size: 1.05rem;
+}
+
+.power-choice__copy span {
+  font-size: 0.93rem;
   color: rgba(244, 244, 245, 0.75);
 }
 
 .power-choice:hover,
-.power-choice:focus-visible {
+.power-choice:focus-visible,
+.power-choice.is-selected {
   transform: translateY(-2px);
   border-color: rgba(60, 255, 127, 0.9);
   background: radial-gradient(circle at 0% 0%, rgba(60, 255, 127, 0.28), transparent 70%),
