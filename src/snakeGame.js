@@ -19,11 +19,13 @@ export class SnakeGame {
     this.initialLength = Math.max(1, initialLength);
     this.rng = typeof rng === 'function' ? rng : Math.random;
     this.extraFoodSlots = 0;
+    this.wallBounceActive = false;
     this.reset();
   }
 
   reset() {
     this.extraFoodSlots = 0;
+    this.wallBounceActive = false;
     const startX = Math.floor(this.width / 2);
     const startY = Math.floor(this.height / 2);
     const snake = [];
@@ -78,12 +80,19 @@ export class SnakeGame {
 
     this.state.direction = this.state.nextDirection;
     const head = this.state.snake[0];
-    const vector = DIRECTIONS[this.state.direction];
-    const nextHead = { x: head.x + vector.x, y: head.y + vector.y };
+    let vector = DIRECTIONS[this.state.direction];
+    let nextHead = { x: head.x + vector.x, y: head.y + vector.y };
 
     if (this._outOfBounds(nextHead)) {
-      this.state.status = 'over';
-      return this.getState();
+      const bounced = this._maybeWallBounce({ head });
+      if (!bounced) {
+        this.state.status = 'over';
+        return this.getState();
+      }
+      this.state.direction = bounced.direction;
+      this.state.nextDirection = bounced.direction;
+      vector = DIRECTIONS[this.state.direction];
+      nextHead = { x: head.x + vector.x, y: head.y + vector.y };
     }
 
     const nextSnake = this.state.snake.map((segment) => ({ ...segment }));
@@ -168,12 +177,68 @@ export class SnakeGame {
     return this.getState();
   }
 
+  setWallBounceActive(enabled = false) {
+    this.wallBounceActive = Boolean(enabled);
+    return this.getState();
+  }
+
   clearExtraFoodSlots() {
     this.extraFoodSlots = 0;
     if (Array.isArray(this.state.extraFoods)) {
       this.state.extraFoods.length = 0;
     }
     return this.getState();
+  }
+
+  _maybeWallBounce({ head } = {}) {
+    if (!this.wallBounceActive) {
+      return null;
+    }
+    if (!head) {
+      return null;
+    }
+
+    const currentDir = this.state.direction;
+    const options =
+      currentDir === 'left' || currentDir === 'right' ? ['up', 'down'] : ['left', 'right'];
+
+    const choose = (candidates) => {
+      if (!candidates.length) return null;
+      if (candidates.length === 1) return candidates[0];
+      const index = Math.floor(this.rng() * candidates.length) % candidates.length;
+      return candidates[index];
+    };
+
+    const snake = this.state.snake.map((segment) => ({ ...segment }));
+    const extraFoods = Array.isArray(this.state.extraFoods) ? this.state.extraFoods : [];
+
+    const isSafe = (direction) => {
+      const vector = DIRECTIONS[direction];
+      if (!vector) return null;
+      const candidateHead = { x: head.x + vector.x, y: head.y + vector.y };
+      if (this._outOfBounds(candidateHead)) {
+        return null;
+      }
+
+      const willEatFood =
+        this.state.food && candidateHead.x === this.state.food.x && candidateHead.y === this.state.food.y;
+      const willEatExtra = extraFoods.some((cell) => cell.x === candidateHead.x && cell.y === candidateHead.y);
+
+      const body = snake.map((segment) => ({ ...segment }));
+      if (!willEatFood && !willEatExtra) {
+        body.pop();
+      }
+
+      if (this._collides(candidateHead, body)) {
+        return null;
+      }
+
+      return direction;
+    };
+
+    const safeOptions = options.map(isSafe).filter(Boolean);
+    const picked = choose(safeOptions);
+    return picked ? { direction: picked } : null;
   }
 
   _collides(target, body) {
