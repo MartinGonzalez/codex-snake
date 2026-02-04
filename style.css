@@ -95,53 +95,59 @@ body::after {
   .app {
     width: 100vw;
     min-height: 100vh;
-    padding: 0.75rem;
-    gap: 0.6rem;
+    padding: 0.5rem;
+    gap: 0.4rem;
     border-radius: 0;
     grid-template-columns: 1fr;
   }
 
   .hud {
-    padding: 0.75rem 0.85rem;
-    border-radius: 18px;
-    gap: 0.5rem;
+    padding: 0.5rem 0.6rem;
+    border-radius: 16px;
+    gap: 0.35rem;
   }
 
   .hud h1,
   .hint,
-  .effects-toggle,
   .status {
     display: none;
   }
 
+  /* Force-hide on mobile (was still showing in some builds due to rule order/caching). */
+  .effects-toggle {
+    display: none !important;
+  }
+
   .scoreboard {
-    padding: 0.55rem 0.75rem;
-    font-size: 0.95rem;
+    padding: 0.45rem 0.6rem;
+    font-size: 0.9rem;
   }
 
   .buttons {
-    gap: 0.5rem;
+    gap: 0.4rem;
   }
 
   .buttons button {
     flex: 1;
     justify-content: center;
-    padding: 0.6rem 1rem;
+    padding: 0.55rem 0.9rem;
   }
 
   .board {
-    gap: 0.65rem;
+    gap: 0.45rem;
+    flex: 1;
+    justify-content: flex-start;
   }
 
   .grid {
     width: 100%;
-    max-width: 640px;
-    max-height: 72vh;
+    max-width: 720px;
+    max-height: 78vh;
     border-radius: 18px;
   }
 
   .touch-controls {
-    width: min(340px, 92vw);
+    width: min(360px, 94vw);
   }
 
   .touch-controls button {
