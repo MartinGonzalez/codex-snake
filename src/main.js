@@ -4,16 +4,8 @@ import { applyConsumedColor, createCrates } from './colorCratesLogic.js';
 const GRID_SIZE = 20;
 const TICK_MS = 120;
 
-const FOOD_COUNT = 6;
-const COLORS = ['red', 'yellow', 'green', 'purple', 'blue', 'orange'];
-const COLOR_HEX = {
-  red: '#ff2244',
-  yellow: '#facc15',
-  green: '#3cff7f',
-  purple: '#a855f7',
-  blue: '#3b82f6',
-  orange: '#fb923c'
-};
+const FOOD_COLORS = ['red', 'yellow', 'green', 'purple', 'blue', 'orange'];
+const FOOD_COUNT = FOOD_COLORS.length;
 
 const CRATE_COUNT = 4;
 const CRATE_SLOTS = 3;
@@ -25,34 +17,55 @@ const coinsElement = document.getElementById('coins');
 const levelElement = document.getElementById('level');
 const cratesElement = document.getElementById('crates');
 const trashElement = document.getElementById('trash');
+const statusElement = document.getElementById('status');
 const controlsWrapper = document.getElementById('touchControls');
 
+if (!gridElement || !coinsElement || !levelElement || !cratesElement || !trashElement) {
+  throw new Error('Missing required DOM elements for Color Crates mode.');
+}
+
+const cellMap = new Map();
+
 const game = new SnakeGame({ width: GRID_SIZE, height: GRID_SIZE });
-
-let loopId = null;
-let paused = true;
-let gameOver = false;
-
-let coins = 0;
-let level = 1;
 let crates = createCrates(CRATE_COUNT, {
   slotsPerCrate: CRATE_SLOTS,
   activeCount: ACTIVE_CRATES,
-  colors: COLORS
+  colors: FOOD_COLORS
 });
+/** @type {string[]} */
 let trash = [];
 
-const cellMap = new Map();
+let loopId = null;
+let paused = true;
+let lostByTrash = false;
+let completedCratesTotal = 0;
+
+function keyOf(point) {
+  return `${point.x}:${point.y}`;
+}
+
+function randInt(maxExclusive) {
+  return Math.floor(Math.random() * maxExclusive);
+}
+
+function pickRandom(list) {
+  return list[randInt(list.length)];
+}
+
+function setStatus(text) {
+  if (!statusElement) return;
+  statusElement.textContent = text;
+}
 
 function buildGrid() {
   gridElement.style.gridTemplateColumns = `repeat(${GRID_SIZE}, 1fr)`;
   gridElement.style.gridTemplateRows = `repeat(${GRID_SIZE}, 1fr)`;
+
   for (let y = 0; y < GRID_SIZE; y += 1) {
     for (let x = 0; x < GRID_SIZE; x += 1) {
       const cell = document.createElement('div');
       cell.className = 'cell';
       cell.dataset.key = `${x}:${y}`;
-      cell.setAttribute('role', 'gridcell');
       gridElement.appendChild(cell);
       cellMap.set(cell.dataset.key, cell);
     }
@@ -70,47 +83,41 @@ function clearCells() {
   });
 }
 
-function randomChoice(list) {
-  const idx = Math.floor(Math.random() * list.length) % list.length;
-  return list[idx];
-}
-
-function randomEmptyCell() {
-  const empty = game.collectEmptyCells();
-  if (!empty.length) return null;
-  return randomChoice(empty);
-}
-
-function spawnInitialFoods() {
+function spawnFoods(colors = FOOD_COLORS) {
   const foods = [];
-  for (let i = 0; i < FOOD_COUNT; i += 1) {
-    const spawn = randomEmptyCell();
-    if (!spawn) break;
-    foods.push({ ...spawn, color: randomChoice(COLORS), id: `f${Date.now()}_${i}` });
+
+  for (const color of colors) {
+    const empty = game.collectEmptyCells();
+    if (!empty.length) {
+      break;
+    }
+    const point = pickRandom(empty);
+    foods.push({ ...point, color });
     game.setFoods(foods);
   }
-  game.setFoods(foods);
+
+  return foods;
 }
 
-function respawnOneFood() {
-  const spawn = randomEmptyCell();
-  if (!spawn) return;
-  const foods = game.getState().foods;
-  foods.push({ ...spawn, color: randomChoice(COLORS), id: `f${Date.now()}_${foods.length}` });
-  game.setFoods(foods);
-}
-
-function renderHud() {
-  coinsElement.textContent = String(coins);
-  levelElement.textContent = String(level);
+function respawnFoodColor(color) {
+  const empty = game.collectEmptyCells();
+  if (!empty.length) {
+    // Board full: treat as win.
+    game.state.status = 'won';
+    return;
+  }
+  const point = pickRandom(empty);
+  const nextFoods = [...game.state.foods, { ...point, color }];
+  game.setFoods(nextFoods);
 }
 
 function renderCrates() {
   cratesElement.innerHTML = '';
+
   crates.forEach((crate, index) => {
     const crateEl = document.createElement('div');
     crateEl.className = 'crate';
-    crateEl.style.setProperty('--crate-color', COLOR_HEX[crate.color] || crate.color);
+    crateEl.style.setProperty('--crate-color', `var(--food-${crate.color})`);
 
     if (crate.locked) {
       crateEl.classList.add('is-locked');
@@ -120,34 +127,17 @@ function renderCrates() {
       crateEl.appendChild(lock);
     }
 
-    if (crate.justCompleted) {
-      crateEl.classList.add('is-completing');
-      // Clear the flag after the animation frame.
-      setTimeout(() => {
-        crate.justCompleted = false;
-        crateEl.classList.remove('is-completing');
-      }, 260);
-    }
-
     const slots = document.createElement('div');
     slots.className = 'crate__slots';
-    for (let i = 0; i < CRATE_SLOTS; i += 1) {
+    for (let i = 0; i < crate.slots; i += 1) {
       const slot = document.createElement('div');
       slot.className = 'crate__slot';
-      if (i < crate.filled) {
-        slot.classList.add('is-filled');
-      }
+      if (i < crate.filled) slot.classList.add('is-filled');
       slots.appendChild(slot);
     }
+
     crateEl.appendChild(slots);
-
-    // Accessibility label.
-    const active = index < ACTIVE_CRATES;
-    crateEl.setAttribute(
-      'aria-label',
-      `${active ? 'Active' : 'Locked'} crate ${index + 1}: ${crate.color}, ${crate.filled}/${CRATE_SLOTS}`
-    );
-
+    crateEl.dataset.index = String(index);
     cratesElement.appendChild(crateEl);
   });
 }
@@ -157,16 +147,15 @@ function renderTrash() {
   for (let i = 0; i < TRASH_CAPACITY; i += 1) {
     const slot = document.createElement('div');
     slot.className = 'trash__slot';
-    const color = trash[i];
-    if (color) {
+    if (i < trash.length) {
       slot.classList.add('is-filled');
-      slot.style.setProperty('--trash-color', COLOR_HEX[color] || color);
+      slot.style.setProperty('--trash-color', `var(--food-${trash[i]})`);
     }
     trashElement.appendChild(slot);
   }
 }
 
-function renderBoard(state = game.getState()) {
+function render(state = game.getState()) {
   clearCells();
 
   state.snake.forEach((segment, index) => {
@@ -180,93 +169,94 @@ function renderBoard(state = game.getState()) {
     const cell = getCell(food.x, food.y);
     if (!cell) return;
     cell.classList.add('food');
-    cell.style.setProperty('--food-color', COLOR_HEX[food.color] || food.color);
+    cell.style.setProperty('--food-color', `var(--food-${food.color})`);
   });
 
-  gridElement.classList.toggle('is-gameover', gameOver);
-}
-
-function renderAll() {
-  renderHud();
   renderCrates();
   renderTrash();
-  renderBoard();
+
+  coinsElement.textContent = String(state.score);
+  levelElement.textContent = String(1 + completedCratesTotal);
+
+  if (lostByTrash) {
+    setStatus('Game over — trash is full. Tap to restart.');
+  } else if (state.status === 'over') {
+    setStatus('Game over — you hit yourself. Tap to restart.');
+  } else if (state.status === 'won') {
+    setStatus('You win — board is full. Tap to restart.');
+  } else if (paused) {
+    setStatus('Tap the board to start.');
+  } else {
+    setStatus('Running');
+  }
 }
 
 function resetRun() {
   game.reset();
-  coins = 0;
-  level = 1;
   crates = createCrates(CRATE_COUNT, {
     slotsPerCrate: CRATE_SLOTS,
     activeCount: ACTIVE_CRATES,
-    colors: COLORS
+    colors: FOOD_COLORS
   });
   trash = [];
-  gameOver = false;
-  paused = false;
-  spawnInitialFoods();
-  renderAll();
-}
+  lostByTrash = false;
+  completedCratesTotal = 0;
 
-function endRun(reason = 'Trash full') {
-  gameOver = true;
+  spawnFoods(FOOD_COLORS);
   paused = true;
-  gridElement.classList.add('is-gameover');
-  gridElement.setAttribute('aria-label', `Game over: ${reason}. Tap the board to restart.`);
+  render(game.getState());
 }
 
-function handleConsumedFood(food) {
-  if (!food) return;
+function startOrRestart() {
+  const state = game.getState();
+  if (lostByTrash || state.status === 'over' || state.status === 'won') {
+    resetRun();
+  }
+  paused = false;
+}
 
-  coins += 1;
+function step() {
+  if (paused) return;
+  if (lostByTrash) return;
 
-  const result = applyConsumedColor({
-    color: food.color,
-    crates,
-    trash,
-    activeCount: ACTIVE_CRATES,
-    trashCapacity: TRASH_CAPACITY,
-    colorsPool: COLORS
-  });
+  const next = game.tick();
 
-  if (result.completedCrates > 0) {
-    level += result.completedCrates;
+  if (next.ateFood) {
+    const consumedColor = next.ateFood.color;
+
+    // Apply crates/trash logic.
+    const result = applyConsumedColor({
+      color: consumedColor,
+      crates,
+      trash,
+      activeCount: ACTIVE_CRATES,
+      trashCapacity: TRASH_CAPACITY,
+      colorsPool: FOOD_COLORS
+    });
+
+    if (result.completedCrates > 0) {
+      completedCratesTotal += result.completedCrates;
+    }
+
+    if (result.gameOver) {
+      lostByTrash = true;
+      paused = true;
+    }
+
+    // Respawn 1:1, keeping one food per color on the board.
+    respawnFoodColor(consumedColor);
   }
 
-  if (result.gameOver) {
-    endRun('Trash full');
-    return;
+  if (next.status === 'over' || next.status === 'won') {
+    paused = true;
   }
 
-  // Ensure we always have 6 foods.
-  respawnOneFood();
+  render(game.getState());
 }
 
 function ensureLoop() {
   if (loopId) return;
-  loopId = setInterval(() => {
-    if (paused || gameOver) return;
-    const state = game.tick();
-    if (state.ateFood) {
-      handleConsumedFood(state.ateFood);
-    }
-    if (state.status === 'over') {
-      endRun('Self collision');
-    }
-    renderAll();
-  }, TICK_MS);
-}
-
-function handleDirectionChange(direction) {
-  if (paused && !gameOver) {
-    paused = false;
-  }
-  if (gameOver) {
-    resetRun();
-    return;
-  }
-  game.setDirection(direction);
+  loopId = setInterval(step, TICK_MS);
 }
 
 const KEY_BINDINGS = {
@@ -285,34 +275,45 @@ const KEY_BINDINGS = {
 };
 
 function handleKeydown(event) {
+  if (event.key === ' ' || event.code === 'Space') {
+    event.preventDefault();
+    if (paused) startOrRestart();
+    return;
+  }
+
   const direction = KEY_BINDINGS[event.key];
   if (!direction) return;
+
   event.preventDefault();
-  handleDirectionChange(direction);
+  if (paused) startOrRestart();
+  game.setDirection(direction);
 }
 
 function handleTouchControls(event) {
   const button = event.target.closest('button[data-dir]');
   if (!button) return;
   event.preventDefault();
-  handleDirectionChange(button.dataset.dir);
+  if (paused) startOrRestart();
+  game.setDirection(button.dataset.dir);
 }
 
 function init() {
   buildGrid();
   resetRun();
   ensureLoop();
-  controlsWrapper.addEventListener('click', handleTouchControls);
-  window.addEventListener('keydown', handleKeydown);
 
   gridElement.addEventListener('click', () => {
-    if (gameOver) {
-      resetRun();
-    }
+    if (paused) startOrRestart();
   });
+
+  window.addEventListener('keydown', handleKeydown);
+  if (controlsWrapper) {
+    controlsWrapper.addEventListener('click', handleTouchControls);
+  }
 
   window.addEventListener('blur', () => {
     paused = true;
+    render(game.getState());
   });
 }
 

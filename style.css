@@ -6,6 +6,13 @@
   --grid-border: rgba(255, 255, 255, 0.12);
   --panel-bg: rgba(8, 8, 16, 0.7);
   --panel-border: rgba(255, 255, 255, 0.15);
+
+  --food-red: #ff2244;
+  --food-yellow: #facc15;
+  --food-green: #3cff7f;
+  --food-purple: #a855f7;
+  --food-blue: #60a5fa;
+  --food-orange: #fb923c;
 }
 
 * {
@@ -101,6 +108,16 @@ body::after {
 
 .scoreboard p {
   margin: 0;
+}
+
+.status {
+  margin: 0;
+  font-size: 0.95rem;
+  opacity: 0.85;
+  padding: 0.55rem 0.75rem;
+  border-radius: 14px;
+  background: rgba(28, 42, 56, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .crates {
