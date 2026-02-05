@@ -254,14 +254,32 @@ body::after {
   border-right: 1px solid rgba(255, 255, 255, 0.04);
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   background: rgba(255, 255, 255, 0.01);
+  position: relative;
 }
 
 .cell.snake {
-  background: rgba(60, 255, 127, 0.35);
+  background: linear-gradient(
+    135deg,
+    rgba(60, 255, 127, 0.15) 0%,
+    rgba(60, 255, 127, 0.45) 45%,
+    rgba(60, 255, 127, 0.22) 100%
+  );
+  box-shadow:
+    0 0 10px rgba(60, 255, 127, 0.18),
+    inset 0 0 10px rgba(60, 255, 127, 0.12);
 }
 
 .cell.snake.head {
-  background: rgba(60, 255, 127, 0.8);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(60, 255, 127, 0.9) 55%,
+    rgba(60, 255, 127, 0.35) 100%
+  );
+  box-shadow:
+    0 0 16px rgba(60, 255, 127, 0.45),
+    0 0 34px rgba(60, 255, 127, 0.22),
+    inset 0 0 12px rgba(255, 255, 255, 0.08);
 }
 
 .cell.food {
@@ -271,7 +289,9 @@ body::after {
     color-mix(in srgb, var(--food-color, #ff2244) 85%, #000) 55%,
     color-mix(in srgb, var(--food-color, #ff2244) 55%, #000) 100%
   );
-  box-shadow: 0 0 10px color-mix(in srgb, var(--food-color, #ff2244) 65%, transparent);
+  box-shadow:
+    0 0 12px color-mix(in srgb, var(--food-color, #ff2244) 70%, transparent),
+    0 0 24px color-mix(in srgb, var(--food-color, #ff2244) 35%, transparent);
 }
 
 /* Touch controls */
