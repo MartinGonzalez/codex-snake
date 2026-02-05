@@ -195,12 +195,33 @@ body::after {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.06);
+  position: relative;
+  overflow: hidden;
 }
 
 .crate__slot.is-filled {
-  background: var(--crate-color, rgba(60, 255, 127, 0.8));
-  border-color: rgba(255, 255, 255, 0.18);
-  box-shadow: 0 0 12px rgba(0, 0, 0, 0.25);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--crate-color, rgba(60, 255, 127, 0.9)) 90%, #fff) 0%,
+    color-mix(in srgb, var(--crate-color, rgba(60, 255, 127, 0.85)) 80%, #000) 60%,
+    color-mix(in srgb, var(--crate-color, rgba(60, 255, 127, 0.8)) 70%, #000) 100%
+  );
+  border-color: color-mix(in srgb, var(--crate-color, rgba(60, 255, 127, 0.95)) 55%, rgba(255, 255, 255, 0.25));
+  box-shadow:
+    0 0 10px color-mix(in srgb, var(--crate-color, rgba(60, 255, 127, 0.75)) 55%, transparent),
+    0 0 26px color-mix(in srgb, var(--crate-color, rgba(60, 255, 127, 0.75)) 28%, transparent),
+    inset 0 0 10px rgba(255, 255, 255, 0.08);
+}
+
+.crate__slot.is-filled::after {
+  content: '';
+  position: absolute;
+  inset: -30% -20% auto -20%;
+  height: 120%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+  transform: rotate(12deg);
+  opacity: 0.55;
+  pointer-events: none;
 }
 
 .trash {
