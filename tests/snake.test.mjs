@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { SnakeGame } from '../src/snakeGame.js';
+import { applyConsumedColor, createCrates, finalizeCrateReplacement } from '../src/colorCratesLogic.js';
 
 function test(name, fn) {
   try {
@@ -12,33 +13,40 @@ function test(name, fn) {
 }
 
 test('moves forward in the current direction after each tick', () => {
-  const game = new SnakeGame({ width: 5, height: 5, rng: () => 0 });
+  const game = new SnakeGame({ width: 5, height: 5 });
   const state = game.tick();
   assert.equal(state.snake[0].x, 3);
   assert.equal(state.snake[0].y, 2);
   assert.equal(state.snake.length, 3);
 });
 
-test('grows immediately when food is consumed', () => {
-  const game = new SnakeGame({ width: 6, height: 6, rng: () => 0 });
+test('grows immediately when any food is consumed (multi-food)', () => {
+  const game = new SnakeGame({ width: 6, height: 6 });
   const head = game.state.snake[0];
-  game.state.food = { x: head.x + 1, y: head.y };
+  game.setFoods([{ x: head.x + 1, y: head.y, color: 'red' }]);
   const afterEat = game.tick();
   assert.equal(afterEat.score, 1);
   assert.equal(afterEat.snake.length, 4);
+  assert(afterEat.ateFood);
+  assert.equal(afterEat.ateFood.color, 'red');
+  assert.equal(afterEat.foods.length, 0);
 });
 
-test('detects collisions with walls', () => {
-  const game = new SnakeGame({ width: 4, height: 4, rng: () => 0 });
+test('wraps around when crossing walls (teleport)', () => {
+  const game = new SnakeGame({ width: 4, height: 4 });
   game.setDirection('up');
+
+  // Default starts centered at y=2. Move to y=-1 which should wrap to 3.
   game.tick();
   game.tick();
   const result = game.tick();
-  assert.equal(result.status, 'over');
+
+  assert.notEqual(result.status, 'over');
+  assert.equal(result.snake[0].y, 3);
 });
 
 test('detects collisions with itself', () => {
-  const game = new SnakeGame({ width: 6, height: 6, rng: () => 0 });
+  const game = new SnakeGame({ width: 6, height: 6 });
   game.state.snake = [
     { x: 2, y: 2 },
     { x: 1, y: 2 },
@@ -53,130 +61,71 @@ test('detects collisions with itself', () => {
   assert.equal(result.status, 'over');
 });
 
-test('food never spawns on the snake', () => {
-  const game = new SnakeGame({ width: 3, height: 3, rng: () => 0.75 });
-  game.state.snake = [
-    { x: 0, y: 0 },
-    { x: 1, y: 0 },
-    { x: 2, y: 0 },
-    { x: 2, y: 1 },
-    { x: 1, y: 1 },
-    { x: 0, y: 1 },
-    { x: 0, y: 2 },
-    { x: 1, y: 2 }
-  ];
-  const food = game._spawnFood();
-  assert.deepEqual(food, { x: 2, y: 2 });
+test('wrong color goes to trash and losing occurs at capacity', () => {
+  const rng = () => 0; // deterministic replacement selection
+  const crates = createCrates(4, {
+    colors: ['red', 'yellow', 'green', 'purple', 'blue', 'orange'],
+    rng
+  });
+
+  // Force active crates to known colors.
+  crates[0].color = 'red';
+  crates[1].color = 'yellow';
+  crates[2].color = 'green';
+  crates[3].color = 'purple';
+
+  const trash = [];
+  for (let i = 0; i < 4; i += 1) {
+    const res = applyConsumedColor({ color: 'blue', crates, trash, rng });
+    assert.equal(res.gameOver, false);
+  }
+  assert.equal(trash.length, 4);
+
+  const last = applyConsumedColor({ color: 'blue', crates, trash, rng });
+  assert.equal(trash.length, 5);
+  assert.equal(last.gameOver, true);
 });
 
-test('shrink removes tail segments while keeping the head', () => {
-  const game = new SnakeGame({ width: 6, height: 6, rng: () => 0 });
-  game.state.snake = [
-    { x: 3, y: 3 },
-    { x: 2, y: 3 },
-    { x: 1, y: 3 },
-    { x: 1, y: 4 },
-    { x: 1, y: 5 }
-  ];
-  const originalHead = { ...game.state.snake[0] };
-  const result = game.shrink(2);
-  assert.equal(result.snake.length, 3);
-  assert.deepEqual(result.snake[0], originalHead);
-});
+test('matching active crate fills, completes at 3, animates, then replaces color and pulls from trash', () => {
+  // rng sequence: pick last candidate by returning 0.99
+  const rng = (() => {
+    const seq = [0.99, 0.99, 0.99];
+    let i = 0;
+    return () => seq[Math.min(i++, seq.length - 1)];
+  })();
 
-test('extra food slots spawn multiple consumable foods', () => {
-  const game = new SnakeGame({ width: 6, height: 6, rng: () => 0.33 });
-  const state = game.addExtraFoodSlots(2);
-  assert.equal(state.extraFoods.length, 2);
-  const uniqueKeys = new Set(state.extraFoods.map((cell) => `${cell.x}:${cell.y}`));
-  assert.equal(uniqueKeys.size, 2);
-});
+  const crates = createCrates(4, {
+    colors: ['red', 'yellow', 'green', 'purple', 'blue', 'orange'],
+    rng
+  });
 
-test('consuming an extra food increases score and respawns elsewhere', () => {
-  const game = new SnakeGame({ width: 6, height: 6, rng: () => 0 });
-  game.addExtraFoodSlots(1);
-  const target = { x: 3, y: 2 };
-  game.state.extraFoods = [target];
-  game.extraFoodSlots = 1;
-  game.state.food = { x: 5, y: 5 };
-  game.state.snake = [
-    { x: 2, y: 2 },
-    { x: 1, y: 2 },
-    { x: 0, y: 2 }
-  ];
-  game.state.direction = 'right';
-  game.state.nextDirection = 'right';
-  const beforeScore = game.state.score;
-  const result = game.tick();
-  assert.equal(result.score, beforeScore + 1);
-  assert(result.extraFoods.every((cell) => cell.x !== target.x || cell.y !== target.y));
-});
+  crates[0].color = 'red';
+  crates[1].color = 'yellow';
+  crates[2].color = 'green';
+  crates[3].color = 'purple';
 
-test('clearing extra food slots removes bonus foods', () => {
-  const game = new SnakeGame({ width: 5, height: 5, rng: () => 0.1 });
-  game.addExtraFoodSlots(2);
-  assert(game.getState().extraFoods.length > 0);
-  const afterClear = game.clearExtraFoodSlots();
-  assert.equal(afterClear.extraFoods.length, 0);
-});
+  const trash = ['blue', 'blue'];
 
-test('preferred food placement uses requested coordinate when it is free', () => {
-  const game = new SnakeGame({ width: 5, height: 5, rng: () => 0 });
-  game.state.snake = [
-    { x: 0, y: 0 },
-    { x: 0, y: 1 },
-    { x: 0, y: 2 }
-  ];
-  const preferred = { x: 2, y: 2 };
-  const result = game.placePreferredFood([preferred]);
-  assert.deepEqual(result.food, preferred);
-});
+  applyConsumedColor({ color: 'red', crates, trash, rng });
+  applyConsumedColor({ color: 'red', crates, trash, rng });
 
-test('preferred food placement falls back near center when blocked', () => {
-  const game = new SnakeGame({ width: 5, height: 5, rng: () => 0 });
-  const center = { x: 2, y: 2 };
-  game.state.snake = [center, { x: 2, y: 1 }, { x: 1, y: 1 }];
-  const result = game.placePreferredFood([center]);
-  assert.notDeepEqual(result.food, center);
-  const dx = result.food.x - center.x;
-  const dy = result.food.y - center.y;
-  assert(dx * dx + dy * dy >= 1);
-  assert(dx * dx + dy * dy <= 2); // stays near the center, away from edges
-});
+  // Third fills the crate -> completion should mark it as completing with a pending color.
+  const res = applyConsumedColor({ color: 'red', crates, trash, rng });
+  assert.equal(res.completedCrates, 1);
+  assert.equal(crates[0].isCompleting, true);
+  assert.notEqual(crates[0].pendingColor, null);
 
-test('magnet radius pulls food into the snake and counts as a pickup', () => {
-  const game = new SnakeGame({ width: 6, height: 6, rng: () => 0 });
-  game.setMagnetRadius(1);
+  // Finalize after the animation delay.
+  const beforeColor = crates[0].color;
+  finalizeCrateReplacement({ crate: crates[0], crates, trash, rng });
 
-  // Default head starts at (3,3) and moves right on tick 1.
-  // Place food so that after moving right, it will be adjacent and get pulled onto the head.
-  game.state.food = { x: 5, y: 3 };
+  assert.equal(crates[0].isCompleting, false);
+  assert.notEqual(crates[0].color, beforeColor);
+  assert(!['yellow', 'green', 'purple'].includes(crates[0].color));
 
-  const before = game.getState();
-  assert.equal(before.score, 0);
-  assert.equal(before.snake.length, 3);
-
-  const after = game.tick();
-  assert.equal(after.score, 1);
-  assert.equal(after.snake.length, 4);
-});
-
-test('wall bounce prevents wall death by auto-turning when active', () => {
-  const game = new SnakeGame({ width: 4, height: 4, rng: () => 0 });
-  game.setWallBounceActive(true);
-
-  // Place head at the right edge heading right.
-  game.state.snake = [
-    { x: 3, y: 1 },
-    { x: 2, y: 1 },
-    { x: 1, y: 1 }
-  ];
-  game.state.direction = 'right';
-  game.state.nextDirection = 'right';
-
-  const result = game.tick();
-  assert.notEqual(result.status, 'over');
-  // rng()=0 -> picks 'up' from ['up','down']
-  assert.equal(result.snake[0].x, 3);
-  assert.equal(result.snake[0].y, 0);
+  // If replacement color becomes 'blue', it should pull from trash.
+  if (crates[0].color === 'blue') {
+    assert.equal(trash.length, 0);
+    assert.equal(crates[0].filled, 2);
+  }
 });
