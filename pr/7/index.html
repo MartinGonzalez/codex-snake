@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Snake</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="app">
+      <section class="hud">
+        <div class="scoreboard">
+          <p>Coins: <span id="coins">0</span></p>
+          <p>Lvl: <span id="level">1</span></p>
+        </div>
+
+        <div id="crates" class="crates" aria-label="Color crates"></div>
+        <div id="trash" class="trash" aria-label="Trash row"></div>
+        <p id="status" class="status" aria-live="polite">Tap the board to start.</p>
+      </section>
+
+      <section class="board">
+        <div id="grid" class="grid" role="grid" aria-label="Snake board" tabindex="0"></div>
+
+        <div id="touchControls" class="touch-controls">
+          <button type="button" data-dir="up" aria-label="Move up">▲</button>
+          <div class="touch-row">
+            <button type="button" data-dir="left" aria-label="Move left">◀</button>
+            <button type="button" data-dir="down" aria-label="Move down">▼</button>
+            <button type="button" data-dir="right" aria-label="Move right">▶</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
