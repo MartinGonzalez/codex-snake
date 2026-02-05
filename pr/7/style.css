@@ -265,8 +265,8 @@ body::after {
     0 0 25px rgba(60, 255, 127, 0.15);
   overflow: hidden;
   position: relative;
-  --pickup-shake-distance: 0px;
-  --pickup-shake-duration: 360ms;
+  --pickup-shake-distance: 10px;
+  --pickup-shake-duration: 260ms;
   will-change: transform;
   backface-visibility: hidden;
 }
@@ -427,12 +427,12 @@ body::after {
     transform: translate3d(0, 0, 0);
     opacity: 1;
   }
-  50% {
-    transform: translate3d(0, -18px, 0) scale(0.98);
-    opacity: 0.65;
+  40% {
+    transform: translate3d(0, -26px, 0);
+    opacity: 0.75;
   }
   100% {
-    transform: translate3d(0, -34px, 0) scale(0.96);
+    transform: translate3d(0, -50px, 0);
     opacity: 0;
   }
 }
