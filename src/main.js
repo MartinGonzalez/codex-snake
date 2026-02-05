@@ -1,5 +1,5 @@
 import { SnakeGame } from './snakeGame.js';
-import { applyConsumedColor, createCrates } from './colorCratesLogic.js';
+import { applyConsumedColor, createCrates, finalizeCrateReplacement } from './colorCratesLogic.js';
 
 const GRID_SIZE = 20;
 const TICK_MS = 120;
@@ -119,6 +119,10 @@ function renderCrates() {
     crateEl.className = 'crate';
     crateEl.style.setProperty('--crate-color', `var(--food-${crate.color})`);
 
+    if (crate.isCompleting) {
+      crateEl.classList.add('is-completing');
+    }
+
     if (crate.locked) {
       crateEl.classList.add('is-locked');
       const lock = document.createElement('span');
@@ -215,6 +219,45 @@ function startOrRestart() {
   paused = false;
 }
 
+function triggerPickupFeedback() {
+  if (!gridElement) return;
+  gridElement.classList.remove('pickup-shake');
+  // Force reflow to restart animation reliably.
+  void gridElement.offsetWidth;
+  gridElement.classList.add('pickup-shake');
+}
+
+function scheduleCrateFinalize(crateIndex) {
+  const crate = crates[crateIndex];
+  if (!crate) return;
+  if (!crate.isCompleting) return;
+
+  setTimeout(() => {
+    // If the run got reset, crates reference may have been replaced.
+    const currentCrate = crates[crateIndex];
+    if (!currentCrate || !currentCrate.isCompleting) {
+      render(game.getState());
+      return;
+    }
+
+    const res = finalizeCrateReplacement({
+      crate: currentCrate,
+      crates,
+      trash,
+      trashCapacity: TRASH_CAPACITY,
+      colorsPool: FOOD_COLORS
+    });
+
+    if (res.completedCrates > 0) {
+      completedCratesTotal += res.completedCrates;
+      // Chain completion: animate again, then finalize again.
+      scheduleCrateFinalize(crateIndex);
+    }
+
+    render(game.getState());
+  }, 1000);
+}
+
 function step() {
   if (paused) return;
   if (lostByTrash) return;
@@ -223,6 +266,8 @@ function step() {
 
   if (next.ateFood) {
     const consumedColor = next.ateFood.color;
+
+    triggerPickupFeedback();
 
     // Apply crates/trash logic.
     const result = applyConsumedColor({
@@ -236,6 +281,11 @@ function step() {
 
     if (result.completedCrates > 0) {
       completedCratesTotal += result.completedCrates;
+      // Find which active crate is completing and schedule its replacement.
+      const completingIndex = crates.findIndex((crate) => crate.isCompleting);
+      if (completingIndex !== -1) {
+        scheduleCrateFinalize(completingIndex);
+      }
     }
 
     if (result.gameOver) {

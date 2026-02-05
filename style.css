@@ -405,14 +405,36 @@ body::after {
   }
 }
 
-.crate.is-completing {
-  animation: cratePop 240ms ease-in-out;
+.grid.pickup-shake {
+  animation: pickupShake var(--pickup-shake-duration, 360ms) ease-in-out;
 }
 
-@keyframes cratePop {
-  0% { transform: scale(1); }
-  50% { transform: scale(0.92); opacity: 0.7; }
-  100% { transform: scale(1); opacity: 1; }
+@keyframes pickupShake {
+  0% { transform: translate3d(0, 0, 0); }
+  15% { transform: translate3d(calc(var(--pickup-shake-distance, 8px) * -1), 0, 0); }
+  30% { transform: translate3d(var(--pickup-shake-distance, 8px), 0, 0); }
+  45% { transform: translate3d(calc(var(--pickup-shake-distance, 8px) * -0.75), 0, 0); }
+  60% { transform: translate3d(calc(var(--pickup-shake-distance, 8px) * 0.75), 0, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+.crate.is-completing {
+  animation: crateFlyUp 1000ms ease-in forwards;
+}
+
+@keyframes crateFlyUp {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+  50% {
+    transform: translate3d(0, -18px, 0) scale(0.98);
+    opacity: 0.65;
+  }
+  100% {
+    transform: translate3d(0, -34px, 0) scale(0.96);
+    opacity: 0;
+  }
 }
 
 .grid.is-gameover {

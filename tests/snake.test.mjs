@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { SnakeGame } from '../src/snakeGame.js';
-import { applyConsumedColor, createCrates } from '../src/colorCratesLogic.js';
+import { applyConsumedColor, createCrates, finalizeCrateReplacement } from '../src/colorCratesLogic.js';
 
 function test(name, fn) {
   try {
@@ -86,7 +86,7 @@ test('wrong color goes to trash and losing occurs at capacity', () => {
   assert.equal(last.gameOver, true);
 });
 
-test('matching active crate fills, completes at 3, replaces color, and pulls from trash', () => {
+test('matching active crate fills, completes at 3, animates, then replaces color and pulls from trash', () => {
   // rng sequence: pick last candidate by returning 0.99
   const rng = (() => {
     const seq = [0.99, 0.99, 0.99];
@@ -109,11 +109,18 @@ test('matching active crate fills, completes at 3, replaces color, and pulls fro
   applyConsumedColor({ color: 'red', crates, trash, rng });
   applyConsumedColor({ color: 'red', crates, trash, rng });
 
-  // Third fills the crate -> completion -> replacement should avoid other crate colors.
+  // Third fills the crate -> completion should mark it as completing with a pending color.
   const res = applyConsumedColor({ color: 'red', crates, trash, rng });
   assert.equal(res.completedCrates, 1);
-  assert.equal(crates[0].filled >= 0, true);
-  assert.notEqual(crates[0].color, 'red');
+  assert.equal(crates[0].isCompleting, true);
+  assert.notEqual(crates[0].pendingColor, null);
+
+  // Finalize after the animation delay.
+  const beforeColor = crates[0].color;
+  finalizeCrateReplacement({ crate: crates[0], crates, trash, rng });
+
+  assert.equal(crates[0].isCompleting, false);
+  assert.notEqual(crates[0].color, beforeColor);
   assert(!['yellow', 'green', 'purple'].includes(crates[0].color));
 
   // If replacement color becomes 'blue', it should pull from trash.
