@@ -3,65 +3,25 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Snake</title>
-    <link rel="stylesheet" href="style.css" />
+    <title>Web Game Template</title>
+    <style>
+      :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+      body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0b1020; color: #e5e7eb; }
+      main { text-align: center; padding: 2rem; max-width: 720px; }
+      h1 { margin: 0 0 0.5rem; font-size: 2rem; }
+      p { margin: 0.25rem 0; opacity: 0.9; }
+      code { background: rgba(255,255,255,0.08); padding: 0.15rem 0.35rem; border-radius: 6px; }
+      a { color: #60a5fa; }
+    </style>
   </head>
   <body>
-    <main class="app">
-      <section class="hud">
-        <h1>Snake</h1>
-        <div class="scoreboard">
-          <p>Score: <span id="score">0</span></p>
-          <p>Time: <span id="timer">30.0s</span></p>
-          <p>Best: <span id="bestScore">0</span></p>
-        </div>
-        <div id="status" class="status">Press play to start your 30-second run.</div>
-        <div class="buttons">
-          <button id="playPauseBtn" type="button">Play</button>
-          <button id="restartBtn" class="secondary" type="button">Restart</button>
-        </div>
-        <p id="hintText" class="hint">
-          Use arrow keys or WASD. Eat as many squares as you can before the 30-second timer expires. Press
-          Space to dash once unlocked.
-        </p>
-        <label class="effects-toggle">
-          <input id="effectsForceToggle" type="checkbox" />
-          Force visual effects (overrides your system's Reduce Motion setting)
-        </label>
-      </section>
-      <section class="board">
-        <div
-          id="grid"
-          class="grid"
-          role="grid"
-          aria-label="Snake board"
-          tabindex="0"
-        ></div>
-        <div id="touchControls" class="touch-controls">
-          <button type="button" data-dir="up" aria-label="Move up">▲</button>
-          <div class="touch-row">
-            <button type="button" data-dir="left" aria-label="Move left">◀</button>
-            <button type="button" data-dir="down" aria-label="Move down">▼</button>
-            <button type="button" data-dir="right" aria-label="Move right">▶</button>
-          </div>
-        </div>
-      </section>
+    <main>
+      <h1>Hello, world</h1>
+      <p>This branch is a template for <strong>GitHub Pages + PR previews</strong>.</p>
+      <p>Workflow lives in <code>.github/workflows/pages.yml</code>.</p>
+      <p>
+        Production: <a href="./">/</a> · PR previews: <code>/pr/&lt;number&gt;/</code>
+      </p>
     </main>
-    <div
-      id="powerModal"
-      class="power-modal"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="powerTitle"
-      aria-describedby="powerSubtitle"
-    >
-      <div class="power-modal__card">
-        <p class="power-modal__eyebrow">Power boost</p>
-        <h2 id="powerTitle">Pick your upgrade</h2>
-        <p id="powerSubtitle">You cleared 5 squares. Choose a boost to keep going.</p>
-        <div id="powerChoices" class="power-choices"></div>
-      </div>
-    </div>
-    <script type="module" src="./src/main.js"></script>
   </body>
 </html>
