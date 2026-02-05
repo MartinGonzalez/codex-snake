@@ -227,6 +227,15 @@ function triggerPickupFeedback() {
   gridElement.classList.add('pickup-shake');
 }
 
+function setupAnimations() {
+  if (!gridElement) return;
+  gridElement.addEventListener('animationend', (event) => {
+    if (event.animationName === 'pickupShake') {
+      gridElement.classList.remove('pickup-shake');
+    }
+  });
+}
+
 function scheduleCrateFinalize(crateIndex) {
   const crate = crates[crateIndex];
   if (!crate) return;
@@ -349,6 +358,7 @@ function handleTouchControls(event) {
 
 function init() {
   buildGrid();
+  setupAnimations();
   resetRun();
   ensureLoop();
 
